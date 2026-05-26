@@ -49,12 +49,13 @@ export const authOptions: NextAuthOptions = {
       if (session?.user?.email) {
         const { data } = await supabase
           .from('profiles')
-          .select('credits')
+          .select('credits, plan')
           .eq('email', session.user.email)
           .single();
 
         if (data) {
           (session.user as any).credits = data.credits;
+          (session.user as any).plan = data.plan || 'free';
         }
       }
       return session;

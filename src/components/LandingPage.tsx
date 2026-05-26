@@ -64,11 +64,18 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             {session?.user?.email ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-gray-100 rounded-full px-4 py-2">
                   <span className="text-sm text-gray-600">
-                  <span className="text-primary font-semibold">{totalCredits - ((session.user as any)?.credits ?? totalCredits)}</span>
-                  <span className="text-gray-400">/{totalCredits}</span>
-                </span>
+                    Credits: <span className="text-primary font-semibold">{totalCredits - ((session.user as any)?.credits ?? totalCredits)}</span>
+                    <span className="text-gray-400">/{totalCredits}</span>
+                  </span>
+                </div>
+                <div className="bg-gray-100 rounded-full px-4 py-2">
+                  <span className="text-sm text-gray-600">
+                    <span className="text-primary font-semibold">{(session.user as any)?.plan || 'free'}</span>
+                  </span>
+                </div>
                 <button
                   onClick={() => router.push('/account')}
                   className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 font-semibold overflow-hidden hover:bg-gray-200 transition"
