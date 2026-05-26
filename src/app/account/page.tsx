@@ -104,6 +104,12 @@ export default function AccountPage() {
                 <span className="text-gray-700">{postsGenerated}</span>
               </div>
             </div>
+            <button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              className="w-full mt-6 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition text-sm font-medium"
+            >
+              Sign Out
+            </button>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl p-6">
