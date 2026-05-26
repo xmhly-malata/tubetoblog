@@ -2,8 +2,22 @@ import { NextAuthOptions } from 'next-auth';
 import { supabase } from '@/lib/supabase';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 
 const FREE_CREDITS = parseInt(process.env.FREE_CREDITS || '2');
+
+function createHttpAgent() {
+  const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  if (!proxy) return undefined;
+  
+  if (proxy.startsWith('socks')) {
+    return new SocksProxyAgent(proxy);
+  }
+  return new HttpsProxyAgent(proxy);
+}
+
+const httpAgent = createHttpAgent();
 
 const providers = [];
 
@@ -12,6 +26,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      httpAgent,
     })
   );
 }
@@ -21,6 +36,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      httpAgent,
     })
   );
 }

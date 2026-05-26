@@ -109,17 +109,68 @@ Requirements:
 1. Write in ${language === 'zh' ? 'Chinese' : 'American English'} with a conversational, engaging, and professional tone
 2. Avoid AI-sounding words like "delve", "realm", "unleash", "tapestry", "crucial", "mastering", etc.
 3. Use natural language that sounds human-written
-4. Structure with H1, H2, H3 headings, bullet points, and a FAQ section
-5. Extract 3-5 main keywords for SEO
-6. Generate a meta description under 160 characters
-7. Aim for a keyword density of 2-3%
-8. Include a compelling introduction and conclusion
-9. End with a call-to-action
+
+Structure your blog post with EXACTLY this format and hierarchy:
+
+HEADING STRUCTURE (MANDATORY):
+# H1 Title - Main SEO-optimized title (use main keyword)
+
+## Introduction (H2) - 2-3 paragraphs intro
+
+## Main Topic 1 (H2)
+Content paragraphs here...
+
+### Subtopic 1.1 (H3)
+2-3 paragraphs of detailed content...
+
+### Subtopic 1.2 (H3)
+2-3 paragraphs of detailed content...
+
+## Main Topic 2 (H2)
+Content paragraphs here...
+
+### Subtopic 2.1 (H3)
+Detailed content...
+
+### Subtopic 2.2 (H3)
+Detailed content...
+
+## Main Topic 3 (H2)
+Content...
+
+### Subtopic 3.1 (H3)
+Content...
+
+## Main Topic 4 (H2)
+Content...
+
+## FAQ (H2)
+Each question as H3 with answer in paragraph
+
+### Question 1 (H3)
+Answer paragraph...
+
+### Question 2 (H3)
+Answer paragraph...
+
+## Conclusion (H2)
+2-3 paragraph summary
+
+WRITING RULES:
+- Every H2 section MUST have at least one H3 subsection
+- Every H3 must have 2-4 paragraphs of substantial content
+- Use **bold** for key terms in bullet points
+- Use numbered lists (1. 2. 3.) for steps/sequences
+- Total blog: 800-1500 words
+
+Extract 3-5 main keywords for SEO.
+Generate a meta description under 160 characters.
+Aim for a keyword density of 2-3%.
 
 Output format (JSON only, no markdown):
 {
   "title": "SEO-optimized blog title",
-  "content": "Full blog post in markdown format",
+  "content": "Full blog post in markdown format with proper heading hierarchy",
   "keywords": ["keyword1", "keyword2", "keyword3"],
   "metaDescription": "Meta description under 160 chars"
 }

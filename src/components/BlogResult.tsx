@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 interface BlogResultProps {
   title: string;
@@ -13,9 +14,19 @@ interface BlogResultProps {
   };
   videoTitle: string;
   youtubeUrl: string;
+  publishedAt?: string;
 }
 
-export default function BlogResult({ title, content, seoData, videoTitle, youtubeUrl }: BlogResultProps) {
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+}
+
+export default function BlogResult({ title, content, seoData, videoTitle, youtubeUrl, publishedAt }: BlogResultProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -56,14 +67,19 @@ export default function BlogResult({ title, content, seoData, videoTitle, youtub
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b sticky top-0 z-50">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            TubeToBlog
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+              </svg>
+            </div>
+            <span className="text-xl font-bold text-gray-900">TubeToBlog</span>
           </div>
           <button
             onClick={() => window.location.href = '/'}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition"
           >
             ← Generate Another
           </button>
@@ -73,22 +89,54 @@ export default function BlogResult({ title, content, seoData, videoTitle, youtub
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border p-8">
-              <div className="mb-6 pb-6 border-b">
-                <p className="text-sm text-gray-500 mb-2">Generated from: {videoTitle}</p>
-                <h1 className="text-4xl font-bold text-gray-900">{title}</h1>
+            <div className="bg-white rounded-2xl border border-gray-200 p-8">
+              <div className="mb-6 pb-6 border-b border-gray-100">
+                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-3">
+                  {publishedAt && (
+                    <span className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {formatDate(publishedAt)}
+                    </span>
+                  )}
+                  <a 
+                    href={youtubeUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-primary hover:text-primary-dark"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    View source video
+                  </a>
+                </div>
+                <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
               </div>
               
-              <div className="prose prose-lg max-w-none">
-                <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+              <div className="prose prose-lg max-w-none 
+                  prose-headings:font-bold prose-headings:text-gray-900
+                  prose-h1:text-2xl prose-h1:border-b prose-h1:pb-4 prose-h1:mb-6
+                  prose-h2:text-xl prose-h2:border-b prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4
+                  prose-h3:text-lg prose-h3:mt-5 prose-h3:mb-2
+                  prose-p:text-gray-600 prose-p:leading-7 prose-p:mb-4
+                  prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                  prose-strong:text-gray-800
+                  prose-ul:pl-6 prose-li:text-gray-600
+                  prose-ol:pl-6 prose-li:text-gray-600
+                  prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-red-50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:my-4 prose-blockquote:not-italic
+                  prose-blockquote-p:text-gray-600
+                ">
+                <ReactMarkdown>
                   {content}
-                </div>
+                </ReactMarkdown>
               </div>
 
-              <div className="mt-8 pt-6 border-t flex gap-4">
+              <div className="mt-8 pt-6 border-t border-gray-100 flex gap-3">
                 <button
                   onClick={handleCopy}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition flex items-center justify-center gap-2"
                 >
                   {copied ? (
                     <>
@@ -100,7 +148,7 @@ export default function BlogResult({ title, content, seoData, videoTitle, youtub
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                       </svg>
                       Copy to Clipboard
                     </>
@@ -108,10 +156,10 @@ export default function BlogResult({ title, content, seoData, videoTitle, youtub
                 </button>
                 <button
                   onClick={handleDownload}
-                  className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition flex items-center justify-center gap-2"
+                  className="px-6 py-3 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                   Download .md
                 </button>
@@ -120,64 +168,53 @@ export default function BlogResult({ title, content, seoData, videoTitle, youtub
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border p-6">
-              <h3 className="text-lg font-semibold mb-4">SEO Score Card</h3>
-              
+            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">SEO Analysis</h3>
               <div className="space-y-4">
                 <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Keyword Optimization</span>
-                    <span className="font-medium">{Math.round(seoData.keywordDensity * 100)}%</span>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-500">Readability Score</span>
+                    <span className="font-medium text-gray-700">{seoData.readabilityScore}/100</span>
                   </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
                     <div 
-                      className="h-full bg-green-500 rounded-full transition-all"
-                      style={{ width: `${Math.min(seoData.keywordDensity * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Readability</span>
-                    <span className="font-medium">{seoData.readabilityScore}/100</span>
-                  </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-blue-500 rounded-full transition-all"
+                      className="bg-primary h-1.5 rounded-full transition-all"
                       style={{ width: `${seoData.readabilityScore}%` }}
                     />
                   </div>
                 </div>
-
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Meta Description</p>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                    {seoData.metaDescription}
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Keywords</p>
-                  <div className="flex flex-wrap gap-2">
-                    {seoData.keywords.map((keyword, i) => (
-                      <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full">
-                        {keyword}
-                      </span>
-                    ))}
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-500">Keyword Density</span>
+                    <span className="font-medium text-gray-700">{seoData.keywordDensity}%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div 
+                      className="bg-primary h-1.5 rounded-full transition-all"
+                      style={{ width: `${Math.min(seoData.keywordDensity * 10, 100)}%` }}
+                    />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white">
-              <h3 className="text-lg font-semibold mb-2">Unlock Full Features</h3>
-              <p className="text-sm text-blue-100 mb-4">
-                Get unlimited generations with our Pro plan
-              </p>
-              <button className="w-full py-3 bg-white text-blue-600 font-medium rounded-xl hover:bg-blue-50 transition">
-                Upgrade to Pro - $9.90
-              </button>
+            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Keywords</h3>
+              <div className="flex flex-wrap gap-2">
+                {seoData.keywords.map((keyword, index) => (
+                  <span 
+                    key={index}
+                    className="px-3 py-1.5 text-sm bg-red-50 text-primary rounded-lg"
+                  >
+                    {keyword}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Meta Description</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">{seoData.metaDescription}</p>
             </div>
           </div>
         </div>

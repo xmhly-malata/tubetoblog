@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "TubeToBlog - Transform YouTube Videos into SEO Blog Posts",
@@ -17,11 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <Providers>
-          <main className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-            {children}
-          </main>
+          {children}
         </Providers>
       </body>
     </html>

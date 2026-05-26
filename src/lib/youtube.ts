@@ -12,6 +12,7 @@ interface YoutubeVideoInfo {
   thumbnails: any;
   duration: string;
   captions: string | null;
+  publishedAt: string;
 }
 
 function createProxyAgent() {
@@ -81,6 +82,7 @@ export async function getVideoInfo(videoId: string): Promise<YoutubeVideoInfo> {
       thumbnails: video.snippet.thumbnails,
       duration: video.contentDetails.duration,
       captions: null,
+      publishedAt: video.snippet.publishedAt,
     };
   };
 

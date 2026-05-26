@@ -54,9 +54,9 @@ export async function POST(request: NextRequest) {
     const videoInfo = await getVideoInfo(videoId);
     console.log('✅ Video info fetched:', videoInfo.title);
 
-    if (isVideoTooLong(videoInfo.duration, 20)) {
+    if (isVideoTooLong(videoInfo.duration, 240)) {
       return NextResponse.json({ 
-        error: 'Video is too long. Please use videos under 20 minutes.' 
+        error: 'Video is too long. Please use videos under 240 minutes.' 
       }, { status: 400 });
     }
 
@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
       seoData: result.seoData,
       videoTitle: videoInfo.title,
       youtubeUrl,
+      publishedAt: videoInfo.publishedAt,
       remainingCredits: Math.max(0, userCredits - 1),
     });
 
