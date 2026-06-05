@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { extractVideoId, isValidYoutubeUrl, getVideoInfo, isVideoTooLong } from '@/lib/youtube';
-import { generateSeoBlog } from '@/lib/ai';
+import { generateSeoBlog } from '@/lib/minimax';
 
 const FREE_CREDITS = parseInt(process.env.FREE_CREDITS || '2');
 
