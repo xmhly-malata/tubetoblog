@@ -137,26 +137,15 @@ Respond ONLY with valid JSON, no explanations or markdown code blocks.
     }
 
     const requestData = {
-      model: "minimax-M2.7",
-      tokens: 4000,
-      temperature: 0.7,
-      bot_setting: [
-        {
-          bot_name: "SEO博客助手",
-          content: "你是一个专业的SEO内容写作助手，擅长创作高质量、符合搜索引擎优化的博客文章。"
-        }
-      ],
-      reply_constraints: {
-        sender_type: "bot",
-        sender_name: "SEO博客助手",
-        memory: false
-      },
+      model: "MiniMax-Text-01",
       messages: [
         {
-          sender_type: "user",
-          text: prompt
+          role: "user",
+          content: prompt
         }
-      ]
+      ],
+      max_tokens: 4000,
+      temperature: 0.7
     };
 
     const headers = {
@@ -179,7 +168,7 @@ Respond ONLY with valid JSON, no explanations or markdown code blocks.
     let generatedText = '';
     
     if (data.choices && data.choices.length > 0) {
-      generatedText = data.choices[0]?.messages?.[0]?.text || '';
+      generatedText = data.choices[0]?.message?.content || '';
     } else if (data.reply) {
       generatedText = data.reply;
     } else if (data.output && data.output.text) {
