@@ -2,9 +2,9 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 
-export default function AccountPage() {
+function AccountContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -323,5 +323,21 @@ export default function AccountPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+function AccountPageSkeleton() {
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense fallback={<AccountPageSkeleton />}>
+      <AccountContent />
+    </Suspense>
   );
 }
