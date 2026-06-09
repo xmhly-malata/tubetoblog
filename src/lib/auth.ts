@@ -49,13 +49,16 @@ export const authOptions: NextAuthOptions = {
       if (session?.user?.email) {
         const { data } = await supabase
           .from('profiles')
-          .select('credits, plan')
+          .select('credits, plan, subscription_status, monthly_credits_used, current_period_end')
           .eq('email', session.user.email)
           .single();
 
         if (data) {
           (session.user as any).credits = data.credits;
           (session.user as any).plan = data.plan || 'free';
+          (session.user as any).subscription_status = data.subscription_status || 'inactive';
+          (session.user as any).monthly_credits_used = data.monthly_credits_used || 0;
+          (session.user as any).current_period_end = data.current_period_end;
         }
       }
       return session;

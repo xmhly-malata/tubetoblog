@@ -274,7 +274,7 @@ export default function LandingPage() {
                     </li>
                   </ul>
                   <button
-                    onClick={() => router.push('/auth/signin')}
+                    onClick={() => router.push(session ? '/account' : '/auth/signin')}
                     className="w-full py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition h-11"
                   >
                     Upgrade to Pro

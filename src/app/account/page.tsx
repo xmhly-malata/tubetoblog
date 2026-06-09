@@ -1,22 +1,33 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function AccountPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [usageHistory, setUsageHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showCancelMessage, setShowCancelMessage] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin');
     } else if (status === 'authenticated') {
       fetchUsageHistory();
+      if (searchParams.get('success') === 'true') {
+        setShowSuccessMessage(true);
+        router.replace('/account');
+      } else if (searchParams.get('canceled') === 'true') {
+        setShowCancelMessage(true);
+        router.replace('/account');
+      }
     }
-  }, [status, router]);
+  }, [status, router, searchParams]);
 
   const fetchUsageHistory = async () => {
     try {
@@ -29,6 +40,24 @@ export default function AccountPage() {
       console.error('Failed to fetch usage history:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpgrade = async () => {
+    setPurchasing(true);
+    try {
+      const response = await fetch('/api/purchase', { method: 'POST' });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Failed to create checkout session');
+      }
+    } catch (error) {
+      console.error('Purchase error:', error);
+      alert('Failed to initiate purchase');
+    } finally {
+      setPurchasing(false);
     }
   };
 
@@ -45,11 +74,23 @@ export default function AccountPage() {
   }
 
   const user = session.user as any;
-  const credits = user?.credits ?? 2;
   const plan = user?.plan || 'free';
+  const subscriptionStatus = user?.subscription_status || 'inactive';
+  const monthlyCreditsUsed = user?.monthly_credits_used || 0;
+  const currentPeriodEnd = user?.current_period_end;
   const memberSince = user?.createdAt || 'May 2026';
   const postsGenerated = user?.postsGenerated || 0;
   const maxCredits = plan === 'pro' ? 50 : 2;
+  const remainingCredits = maxCredits - monthlyCreditsUsed;
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -76,6 +117,17 @@ export default function AccountPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-12">
+        {showSuccessMessage && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
+            Subscription activated! Welcome to Pro.
+          </div>
+        )}
+        {showCancelMessage && (
+          <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 text-sm">
+            Payment was canceled. You can upgrade anytime.
+          </div>
+        )}
+
         <h1 className="text-2xl font-bold text-gray-900 mb-8">Account Settings</h1>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -122,40 +174,56 @@ export default function AccountPage() {
               }`}>
                 {plan === 'pro' ? 'Pro Plan' : 'Free Plan'}
               </span>
+              {plan === 'pro' && subscriptionStatus && subscriptionStatus !== 'active' && (
+                <span className={`ml-2 inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                  subscriptionStatus === 'past_due' 
+                    ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                    : 'bg-gray-50 text-gray-600 border border-gray-200'
+                }`}>
+                  {subscriptionStatus.replace('_', ' ')}
+                </span>
+              )}
             </div>
+            {plan === 'pro' && currentPeriodEnd && (
+              <div className="text-sm text-gray-500 mb-2">
+                Renews: {formatDate(currentPeriodEnd)}
+              </div>
+            )}
             <div className="text-sm text-gray-500 mb-4">
               {plan === 'pro' 
                 ? '50 video conversions per month' 
                 : '2 video conversions per month'}
             </div>
             <button
+              onClick={handleUpgrade}
+              disabled={plan === 'pro' || purchasing}
               className={`w-full py-3 rounded-xl font-medium transition text-sm ${
                 plan === 'pro'
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-primary text-white hover:bg-primary-dark'
+                  : purchasing
+                    ? 'bg-primary/50 text-white cursor-wait'
+                    : 'bg-primary text-white hover:bg-primary-dark'
               }`}
-              disabled={plan === 'pro'}
             >
-              {plan === 'pro' ? 'Current Plan' : 'Upgrade to Pro - $9.9/month'}
+              {plan === 'pro' ? 'Current Plan' : purchasing ? 'Redirecting...' : 'Upgrade to Pro - $9.9/month'}
             </button>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl p-6">
-            <h2 className="text-base font-semibold mb-5 text-gray-900">Credits Remaining</h2>
+            <h2 className="text-base font-semibold mb-5 text-gray-900">Monthly Usage</h2>
             <div className="flex items-end gap-2 mb-4">
-              <span className="text-4xl font-bold text-gray-900">{credits}</span>
-              <span className="text-gray-400 mb-2 text-sm">/ {maxCredits}</span>
+              <span className="text-4xl font-bold text-gray-900">{remainingCredits}</span>
+              <span className="text-gray-400 mb-2 text-sm">/ {maxCredits} remaining</span>
             </div>
             <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
               <div 
                 className="bg-primary h-2 rounded-full transition-all"
-                style={{ width: `${Math.min((credits / maxCredits) * 100, 100)}%` }}
+                style={{ width: `${Math.min((remainingCredits / maxCredits) * 100, 100)}%` }}
               ></div>
             </div>
             <p className="text-sm text-gray-500">
-              {plan === 'pro' 
-                ? 'Upgrade to get more conversions' 
-                : 'Upgrade to Pro for 50 conversions per month'}
+              {monthlyCreditsUsed} used this period
+              {plan === 'free' && ' - Upgrade to Pro for 50 conversions/month'}
             </p>
           </div>
 
@@ -179,7 +247,7 @@ export default function AccountPage() {
         <div className="mt-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Pricing Plans</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
-            <div className="bg-white border-2 border-gray-200 rounded-2xl p-6">
+            <div className={`bg-white border-2 ${plan === 'free' ? 'border-primary' : 'border-gray-200'} rounded-2xl p-6`}>
               <div className="text-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">Free Plan</h3>
                 <span className="text-2xl font-bold text-gray-900">$0</span>
@@ -207,10 +275,12 @@ export default function AccountPage() {
               </ul>
             </div>
 
-            <div className="bg-white border-2 border-primary rounded-2xl p-6 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-white text-xs font-semibold rounded-full">
-                Current Plan
-              </div>
+            <div className={`bg-white border-2 ${plan === 'pro' ? 'border-primary' : 'border-gray-200'} rounded-2xl p-6 relative`}>
+              {plan === 'pro' && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-white text-xs font-semibold rounded-full">
+                  Current Plan
+                </div>
+              )}
               <div className="text-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">Pro Plan</h3>
                 <span className="text-2xl font-bold text-gray-900">$9.9</span>
