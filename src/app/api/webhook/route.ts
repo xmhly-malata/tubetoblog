@@ -157,7 +157,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
   if (!userEmail) {
     const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
-    userEmail = customer.email;
+    userEmail = customer.email ?? undefined;
   }
 
   if (userEmail) {
