@@ -136,7 +136,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     try {
       const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
       console.log('Customer retrieved:', customer.id, 'Email:', customer.email);
-      userEmail = customer.email;
+      userEmail = customer.email ?? undefined;
     } catch (err: any) {
       console.error('Error retrieving customer:', err.message);
       return;
