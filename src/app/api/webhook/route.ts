@@ -127,7 +127,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   console.log('handlePaymentIntentSucceeded called');
 
-  let userEmail = paymentIntent.metadata?.user_email;
+  let userEmail: string | undefined = paymentIntent.metadata?.user_email;
   console.log('Email from payment intent metadata:', userEmail);
 
   // If no email in metadata, try to get from customer
