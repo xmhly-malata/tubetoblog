@@ -13,8 +13,10 @@ if (!stripeSecretKey) {
 const stripe = new Stripe(stripeSecretKey);
 
 export async function POST(request: NextRequest) {
+  console.log('=== Webhook received ===');
+
   if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET is not configured');
+    console.error('Webhook secret not configured');
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
   }
 
@@ -25,6 +27,7 @@ export async function POST(request: NextRequest) {
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    console.log(`Event type: ${event.type}`);
   } catch (err: any) {
     console.error('Webhook signature verification failed:', err.message);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
@@ -33,36 +36,49 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
+        console.log('Handling checkout.session.completed');
         const session = event.data.object as Stripe.Checkout.Session;
         await handleCheckoutCompleted(session);
         break;
       }
-      case 'customer.subscription.created':
+      case 'customer.subscription.created': {
+        console.log('Handling customer.subscription.created');
+        const subscription = event.data.object as Stripe.Subscription;
+        await handleSubscriptionUpdate(subscription);
+        break;
+      }
       case 'customer.subscription.updated': {
+        console.log('Handling customer.subscription.updated');
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscriptionUpdate(subscription);
         break;
       }
       case 'customer.subscription.deleted': {
+        console.log('Handling customer.subscription.deleted');
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscriptionDeleted(subscription);
         break;
       }
       case 'payment_intent.succeeded': {
-        console.log('Payment succeeded event received');
+        console.log('Handling payment_intent.succeeded');
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('Payment intent:', paymentIntent.id, 'Amount:', paymentIntent.amount);
         break;
       }
       case 'invoice.paid': {
+        console.log('Handling invoice.paid');
         const invoice = event.data.object as Stripe.Invoice;
-        await handlePaymentSucceeded(invoice);
+        await handleInvoicePaid(invoice);
         break;
       }
       case 'invoice.payment_succeeded': {
+        console.log('Handling invoice.payment_succeeded');
         const invoice = event.data.object as Stripe.Invoice;
-        await handlePaymentSucceeded(invoice);
+        await handleInvoicePaid(invoice);
         break;
       }
       case 'invoice.payment_failed': {
+        console.log('Handling invoice.payment_failed');
         const invoice = event.data.object as Stripe.Invoice;
         await handlePaymentFailed(invoice);
         break;
@@ -71,88 +87,175 @@ export async function POST(request: NextRequest) {
         console.log(`Unhandled event type: ${event.type}`);
     }
   } catch (err: any) {
-    console.error(`Error handling ${event.type}:`, err.message);
+    console.error(`Error handling ${event.type}:`, err.message, err.stack);
   }
 
   return NextResponse.json({ received: true });
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  console.log('handleCheckoutCompleted called');
   const userEmail = session.metadata?.user_email || session.customer_email;
-  if (!userEmail) return;
+  console.log('User email from session:', userEmail);
+
+  if (!userEmail) {
+    console.log('No user email found in checkout session');
+    return;
+  }
 
   const subscriptionId = session.subscription as string;
-  if (!subscriptionId) return;
+  console.log('Subscription ID:', subscriptionId);
 
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  await updateUserSubscription(userEmail, subscription);
+  if (!subscriptionId) {
+    console.log('No subscription ID in checkout session');
+    return;
+  }
+
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    console.log('Retrieved subscription:', subscription.id, 'Status:', subscription.status);
+    await updateUserSubscription(userEmail, subscription);
+  } catch (err: any) {
+    console.error('Error retrieving subscription:', err.message);
+  }
 }
 
 async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
-  const userEmail = subscription.metadata?.user_email;
+  console.log('handleSubscriptionUpdate called, subscription:', subscription.id);
+  console.log('Subscription status:', subscription.status);
+  console.log('current_period_end value:', subscription.current_period_end);
+
+  let userEmail = subscription.metadata?.user_email;
+  console.log('Email from metadata:', userEmail);
+
   if (!userEmail) {
-    const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
-    if (customer.email) {
-      await updateUserSubscription(customer.email, subscription);
+    console.log('No email in metadata, fetching customer...');
+    try {
+      const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
+      console.log('Customer retrieved:', customer.id, 'Email:', customer.email);
+      userEmail = customer.email || undefined;
+    } catch (err: any) {
+      console.error('Error retrieving customer:', err.message);
+      return;
     }
-  } else {
+  }
+
+  if (userEmail) {
     await updateUserSubscription(userEmail, subscription);
+  } else {
+    console.log('Still no email found, cannot update user');
   }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const userEmail = subscription.metadata?.user_email;
+  console.log('handleSubscriptionDeleted called');
+
+  let userEmail = subscription.metadata?.user_email;
+
   if (!userEmail) {
     const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
-    if (customer.email) {
-      await deactivateSubscription(customer.email);
-    }
-  } else {
+    userEmail = customer.email || undefined;
+  }
+
+  if (userEmail) {
     await deactivateSubscription(userEmail);
   }
 }
 
-async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
+async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  console.log('handleInvoicePaid called');
+  console.log('Invoice:', invoice.id, 'Subscription:', invoice.subscription);
+
   if (invoice.subscription) {
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
-    const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
-    if (customer.email) {
-      await updateUserSubscription(customer.email, subscription);
+    try {
+      const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+      console.log('Subscription retrieved:', subscription.id);
+
+      const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
+      console.log('Customer:', customer.id, 'Email:', customer.email);
+
+      if (customer.email) {
+        await updateUserSubscription(customer.email, subscription);
+      }
+    } catch (err: any) {
+      console.error('Error in handleInvoicePaid:', err.message);
     }
+  } else {
+    console.log('No subscription in invoice');
   }
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
+  console.log('handlePaymentFailed called');
+
   if (invoice.subscription) {
     const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
     const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
     if (customer.email) {
-      await supabase
+      console.log('Updating subscription_status to past_due for:', customer.email);
+      const { error } = await supabase
         .from('profiles')
         .update({ subscription_status: 'past_due' })
         .eq('email', customer.email);
+
+      if (error) {
+        console.error('Error updating past_due status:', error);
+      }
     }
   }
 }
 
 async function updateUserSubscription(email: string, subscription: Stripe.Subscription) {
-  const { data: { nextBillingDate, status, plan } } = getSubscriptionInfo(subscription);
+  console.log('updateUserSubscription called for:', email);
 
-  await supabase
+  // Safely parse the timestamp
+  let nextBillingDate: string | null = null;
+  if (subscription.current_period_end) {
+    if (typeof subscription.current_period_end === 'number') {
+      // Unix timestamp in seconds
+      nextBillingDate = new Date(subscription.current_period_end * 1000).toISOString();
+    } else if (typeof subscription.current_period_end === 'string') {
+      // Already a date string
+      const parsed = new Date(subscription.current_period_end);
+      if (!isNaN(parsed.getTime())) {
+        nextBillingDate = parsed.toISOString();
+      }
+    }
+  }
+
+  console.log('Parsed nextBillingDate:', nextBillingDate);
+  console.log('Updating with status:', subscription.status);
+
+  const updateData: any = {
+    plan: 'pro',
+    subscription_status: subscription.status,
+    stripe_customer_id: subscription.customer as string,
+    subscription_id: subscription.id,
+    monthly_credits_used: 0,
+  };
+
+  if (nextBillingDate) {
+    updateData.current_period_end = nextBillingDate;
+  }
+
+  console.log('Update data:', JSON.stringify(updateData));
+
+  const { data, error } = await supabase
     .from('profiles')
-    .update({
-      plan: 'pro',
-      subscription_status: status,
-      stripe_customer_id: subscription.customer as string,
-      subscription_id: subscription.id,
-      current_period_end: nextBillingDate,
-      monthly_credits_used: 0,
-    })
+    .update(updateData)
     .eq('email', email);
+
+  if (error) {
+    console.error('Supabase update error:', error.code, error.message);
+  } else {
+    console.log('Successfully updated profile for:', email);
+  }
 }
 
 async function deactivateSubscription(email: string) {
-  await supabase
+  console.log('deactivateSubscription called for:', email);
+
+  const { error } = await supabase
     .from('profiles')
     .update({
       plan: 'free',
@@ -161,20 +264,10 @@ async function deactivateSubscription(email: string) {
       current_period_end: null,
     })
     .eq('email', email);
-}
 
-function getSubscriptionInfo(subscription: Stripe.Subscription) {
-  const status = subscription.status;
-  // Stripe returns current_period_end as Unix timestamp (seconds)
-  const nextBillingDate = subscription.current_period_end 
-    ? new Date(subscription.current_period_end * 1000).toISOString()
-    : null;
-  const plan = subscription.items.data[0]?.price?.nickname || 'pro';
-  return {
-    data: {
-      nextBillingDate,
-      status,
-      plan,
-    },
-  };
+  if (error) {
+    console.error('Error deactivating subscription:', error);
+  } else {
+    console.log('Successfully deactivated subscription for:', email);
+  }
 }
