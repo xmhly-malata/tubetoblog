@@ -97,31 +97,28 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
-// Helper function to find user ID by email from auth.users using Admin API
+// Helper function to find user ID by email from public.user_emails view
 async function getUserIdByEmail(email: string): Promise<string | null> {
   console.log('=== getUserIdByEmail: Looking for user with email:', email);
   
-  // Use service role client's admin API to list users
-  const serviceRoleClient = getServiceRoleClient();
+  const { data: userData, error: userError } = await supabase
+    .from('user_emails')
+    .select('id')
+    .eq('email', email)
+    .single();
   
-  const { data, error } = await serviceRoleClient.auth.admin.listUsers();
-  
-  if (error) {
-    console.error('=== getUserIdByEmail ERROR:', error.code, error.message);
+  if (userError) {
+    console.error('=== getUserIdByEmail ERROR:', userError.code, userError.message);
     return null;
   }
   
-  console.log('=== getUserIdByEmail: Total users found:', data.users.length);
-  
-  const user = data.users.find(u => u.email === email);
-  
-  if (!user) {
+  if (!userData) {
     console.log('=== getUserIdByEmail: No user found with email:', email);
     return null;
   }
   
-  console.log('=== getUserIdByEmail: Found user ID:', user.id);
-  return user.id;
+  console.log('=== getUserIdByEmail: Found user ID:', userData.id);
+  return userData.id;
 }
 
 // Helper function to upsert profile
