@@ -141,10 +141,21 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     }
   }
 
-  // If we have a subscription, get the full subscription object
-  if (paymentIntent.subscription) {
+  // If we have an invoice, get subscription from it
+  let subscriptionId: string | undefined;
+  
+  if (paymentIntent.invoice) {
     try {
-      const subscription = await stripe.subscriptions.retrieve(paymentIntent.subscription as string);
+      const invoice = await stripe.invoices.retrieve(paymentIntent.invoice as string);
+      subscriptionId = invoice.subscription as string | undefined;
+    } catch (err: any) {
+      console.error('Error retrieving invoice:', err.message);
+    }
+  }
+  
+  if (subscriptionId) {
+    try {
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       console.log('Subscription retrieved:', subscription.id, 'Status:', subscription.status);
       if (userEmail) {
         await updateUserSubscription(userEmail, subscription);
