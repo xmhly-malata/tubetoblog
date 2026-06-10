@@ -118,7 +118,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   try {
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
     console.log('Retrieved subscription:', subscription.id, 'Status:', subscription.status);
-    await updateUserSubscription(userEmail, subscription);
+    await updateUserSubscription(subscription.customer as string, subscription);
   } catch (err: any) {
     console.error('Error retrieving subscription:', err.message);
   }
@@ -158,25 +158,26 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       console.log('Subscription retrieved:', subscription.id, 'Status:', subscription.status);
       if (userEmail) {
-        await updateUserSubscription(userEmail, subscription);
+        await updateUserSubscription(subscription.customer as string, subscription);
       }
     } catch (err: any) {
       console.error('Error retrieving subscription:', err.message);
     }
-  } else if (userEmail) {
-    // No subscription, just create a basic pro entry with the email
-    console.log('No subscription found, creating basic profile for:', userEmail);
-    await createBasicProProfile(userEmail);
+  } else if (paymentIntent.customer) {
+    // No subscription, just create a basic pro entry with customer ID
+    console.log('No subscription found, creating basic profile for customer:', paymentIntent.customer);
+    await createBasicProProfile(paymentIntent.customer as string);
   }
 }
 
-async function createBasicProProfile(email: string) {
-  console.log('Creating basic pro profile for:', email);
+async function createBasicProProfile(customerId: string) {
+  console.log('Creating basic pro profile for customer:', customerId);
 
+  // First try UPDATE by stripe_customer_id
   const { error: updateError, count } = await supabase
     .from('profiles')
     .update({ plan: 'pro', subscription_status: 'active' })
-    .eq('email', email);
+    .eq('stripe_customer_id', customerId);
 
   if (updateError) {
     console.error('Supabase update error:', updateError.code, updateError.message);
@@ -187,17 +188,16 @@ async function createBasicProProfile(email: string) {
     const { error: insertError } = await supabase
       .from('profiles')
       .insert({
-        email: email,
         plan: 'pro',
         subscription_status: 'active',
-        credits: 0,
+        stripe_customer_id: customerId,
         monthly_credits_used: 0,
       });
 
     if (insertError) {
       console.error('Supabase insert error:', insertError.code, insertError.message);
     } else {
-      console.log('Successfully created new pro profile for:', email);
+      console.log('Successfully created new pro profile for customer:', customerId);
     }
   }
 }
@@ -223,7 +223,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
   }
 
   if (userEmail) {
-    await updateUserSubscription(userEmail, subscription);
+    await updateUserSubscription(subscription.customer as string, subscription);
   } else {
     console.log('Still no email found, cannot update user');
   }
@@ -231,17 +231,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   console.log('handleSubscriptionDeleted called');
-
-  let userEmail: string | undefined = subscription.metadata?.user_email;
-
-  if (!userEmail) {
-    const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
-    userEmail = customer.email ?? undefined;
-  }
-
-  if (userEmail) {
-    await deactivateSubscription(userEmail);
-  }
+  await deactivateSubscription(subscription.id);
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
@@ -257,7 +247,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       console.log('Customer:', customer.id, 'Email:', customer.email);
 
       if (customer.email) {
-        await updateUserSubscription(customer.email, subscription);
+        await updateUserSubscription(customer.id, subscription);
       }
     } catch (err: any) {
       console.error('Error in handleInvoicePaid:', err.message);
@@ -287,8 +277,8 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   }
 }
 
-async function updateUserSubscription(email: string, subscription: Stripe.Subscription) {
-  console.log('updateUserSubscription called for:', email);
+async function updateUserSubscription(customerId: string, subscription: Stripe.Subscription) {
+  console.log('updateUserSubscription called for customer:', customerId);
 
   // Safely parse the timestamp
   let nextBillingDate: string | null = null;
@@ -312,7 +302,6 @@ async function updateUserSubscription(email: string, subscription: Stripe.Subscr
     stripe_customer_id: subscription.customer as string,
     subscription_id: subscription.id,
     monthly_credits_used: 0,
-    email: email, // Include email in update data
   };
 
   if (nextBillingDate) {
@@ -321,11 +310,11 @@ async function updateUserSubscription(email: string, subscription: Stripe.Subscr
 
   console.log('Update/Insert data:', JSON.stringify(updateData));
 
-  // First try UPDATE
+  // First try UPDATE by stripe_customer_id
   const { data: updateDataResult, error: updateError, count } = await supabase
     .from('profiles')
     .update(updateData)
-    .eq('email', email);
+    .eq('stripe_customer_id', customerId);
 
   if (updateError) {
     console.error('Supabase update error:', updateError.code, updateError.message);
@@ -333,15 +322,13 @@ async function updateUserSubscription(email: string, subscription: Stripe.Subscr
 
   // If no rows were updated (count === 0), try INSERT
   if (count === 0) {
-    console.log('No existing profile found, creating new record for:', email);
+    console.log('No existing profile found, creating new record for customer:', customerId);
     
     const insertData: any = {
-      email: email,
       plan: 'pro',
       subscription_status: subscription.status,
       stripe_customer_id: subscription.customer as string,
       subscription_id: subscription.id,
-      credits: 0,
       monthly_credits_used: 0,
     };
 
@@ -356,15 +343,15 @@ async function updateUserSubscription(email: string, subscription: Stripe.Subscr
     if (insertError) {
       console.error('Supabase insert error:', insertError.code, insertError.message);
     } else {
-      console.log('Successfully created new profile for:', email);
+      console.log('Successfully created new profile for customer:', customerId);
     }
   } else {
-    console.log('Successfully updated profile for:', email);
+    console.log('Successfully updated profile for customer:', customerId);
   }
 }
 
-async function deactivateSubscription(email: string) {
-  console.log('deactivateSubscription called for:', email);
+async function deactivateSubscription(subscriptionId: string) {
+  console.log('deactivateSubscription called for subscription:', subscriptionId);
 
   const { error } = await supabase
     .from('profiles')
@@ -374,11 +361,11 @@ async function deactivateSubscription(email: string) {
       subscription_id: null,
       current_period_end: null,
     })
-    .eq('email', email);
+    .eq('subscription_id', subscriptionId);
 
   if (error) {
     console.error('Error deactivating subscription:', error);
   } else {
-    console.log('Successfully deactivated subscription for:', email);
+    console.log('Successfully deactivated subscription for:', subscriptionId);
   }
 }
