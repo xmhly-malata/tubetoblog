@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
-import { supabase } from '@/lib/supabase';
+import { getServiceRoleClient } from '@/lib/supabase';
+
+// Use service role client to bypass RLS
+const supabase = getServiceRoleClient();
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -212,10 +215,8 @@ async function updateUserSubscription(email: string, subscription: Stripe.Subscr
   let nextBillingDate: string | null = null;
   if (subscription.current_period_end) {
     if (typeof subscription.current_period_end === 'number') {
-      // Unix timestamp in seconds
       nextBillingDate = new Date(subscription.current_period_end * 1000).toISOString();
     } else if (typeof subscription.current_period_end === 'string') {
-      // Already a date string
       const parsed = new Date(subscription.current_period_end);
       if (!isNaN(parsed.getTime())) {
         nextBillingDate = parsed.toISOString();
@@ -232,21 +233,52 @@ async function updateUserSubscription(email: string, subscription: Stripe.Subscr
     stripe_customer_id: subscription.customer as string,
     subscription_id: subscription.id,
     monthly_credits_used: 0,
+    email: email, // Include email in update data
   };
 
   if (nextBillingDate) {
     updateData.current_period_end = nextBillingDate;
   }
 
-  console.log('Update data:', JSON.stringify(updateData));
+  console.log('Update/Insert data:', JSON.stringify(updateData));
 
-  const { data, error } = await supabase
+  // First try UPDATE
+  const { data: updateDataResult, error: updateError, count } = await supabase
     .from('profiles')
     .update(updateData)
     .eq('email', email);
 
-  if (error) {
-    console.error('Supabase update error:', error.code, error.message);
+  if (updateError) {
+    console.error('Supabase update error:', updateError.code, updateError.message);
+  }
+
+  // If no rows were updated (count === 0), try INSERT
+  if (count === 0) {
+    console.log('No existing profile found, creating new record for:', email);
+    
+    const insertData: any = {
+      email: email,
+      plan: 'pro',
+      subscription_status: subscription.status,
+      stripe_customer_id: subscription.customer as string,
+      subscription_id: subscription.id,
+      credits: 0,
+      monthly_credits_used: 0,
+    };
+
+    if (nextBillingDate) {
+      insertData.current_period_end = nextBillingDate;
+    }
+
+    const { error: insertError } = await supabase
+      .from('profiles')
+      .insert(insertData);
+
+    if (insertError) {
+      console.error('Supabase insert error:', insertError.code, insertError.message);
+    } else {
+      console.log('Successfully created new profile for:', email);
+    }
   } else {
     console.log('Successfully updated profile for:', email);
   }
