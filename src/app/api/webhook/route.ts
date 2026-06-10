@@ -128,7 +128,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
   console.log('Subscription status:', subscription.status);
   console.log('current_period_end value:', subscription.current_period_end);
 
-  let userEmail = subscription.metadata?.user_email;
+  let userEmail: string | undefined = subscription.metadata?.user_email;
   console.log('Email from metadata:', userEmail);
 
   if (!userEmail) {
@@ -136,7 +136,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     try {
       const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
       console.log('Customer retrieved:', customer.id, 'Email:', customer.email);
-      userEmail = customer.email || undefined;
+      userEmail = customer.email;
     } catch (err: any) {
       console.error('Error retrieving customer:', err.message);
       return;
@@ -153,11 +153,11 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   console.log('handleSubscriptionDeleted called');
 
-  let userEmail = subscription.metadata?.user_email;
+  let userEmail: string | undefined = subscription.metadata?.user_email;
 
   if (!userEmail) {
     const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
-    userEmail = customer.email || undefined;
+    userEmail = customer.email;
   }
 
   if (userEmail) {
