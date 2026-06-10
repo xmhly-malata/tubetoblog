@@ -13,10 +13,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // First get the user's ID from their email
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', session.user.email)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ history: [] });
+    }
+
     const { data: history, error } = await supabase
       .from('usage_history')
       .select('*')
-      .eq('user_email', session.user.email)
+      .eq('user_id', profile.id)
       .order('created_at', { ascending: false })
       .limit(20);
 

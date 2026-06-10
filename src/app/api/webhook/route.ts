@@ -48,6 +48,15 @@ export async function POST(request: NextRequest) {
         await handleSubscriptionDeleted(subscription);
         break;
       }
+      case 'payment_intent.succeeded': {
+        console.log('Payment succeeded event received');
+        break;
+      }
+      case 'invoice.paid': {
+        const invoice = event.data.object as Stripe.Invoice;
+        await handlePaymentSucceeded(invoice);
+        break;
+      }
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
         await handlePaymentSucceeded(invoice);
@@ -136,7 +145,7 @@ async function updateUserSubscription(email: string, subscription: Stripe.Subscr
       subscription_status: status,
       stripe_customer_id: subscription.customer as string,
       subscription_id: subscription.id,
-      current_period_end: new Date(nextBillingDate).toISOString(),
+      current_period_end: nextBillingDate,
       monthly_credits_used: 0,
     })
     .eq('email', email);
@@ -156,7 +165,10 @@ async function deactivateSubscription(email: string) {
 
 function getSubscriptionInfo(subscription: Stripe.Subscription) {
   const status = subscription.status;
-  const nextBillingDate = subscription.current_period_end;
+  // Stripe returns current_period_end as Unix timestamp (seconds)
+  const nextBillingDate = subscription.current_period_end 
+    ? new Date(subscription.current_period_end * 1000).toISOString()
+    : null;
   const plan = subscription.items.data[0]?.price?.nickname || 'pro';
   return {
     data: {
