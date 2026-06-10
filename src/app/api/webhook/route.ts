@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
         console.log('Handling payment_intent.succeeded');
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         console.log('Payment intent:', paymentIntent.id, 'Amount:', paymentIntent.amount);
+        await handlePaymentIntentSucceeded(paymentIntent);
         break;
       }
       case 'invoice.paid': {
@@ -120,6 +121,73 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     await updateUserSubscription(userEmail, subscription);
   } catch (err: any) {
     console.error('Error retrieving subscription:', err.message);
+  }
+}
+
+async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
+  console.log('handlePaymentIntentSucceeded called');
+
+  let userEmail = paymentIntent.metadata?.user_email;
+  console.log('Email from payment intent metadata:', userEmail);
+
+  // If no email in metadata, try to get from customer
+  if (!userEmail && paymentIntent.customer) {
+    try {
+      const customer = await stripe.customers.retrieve(paymentIntent.customer as string) as Stripe.Customer;
+      console.log('Customer retrieved:', customer.id, 'Email:', customer.email);
+      userEmail = customer.email ?? undefined;
+    } catch (err: any) {
+      console.error('Error retrieving customer:', err.message);
+    }
+  }
+
+  // If we have a subscription, get the full subscription object
+  if (paymentIntent.subscription) {
+    try {
+      const subscription = await stripe.subscriptions.retrieve(paymentIntent.subscription as string);
+      console.log('Subscription retrieved:', subscription.id, 'Status:', subscription.status);
+      if (userEmail) {
+        await updateUserSubscription(userEmail, subscription);
+      }
+    } catch (err: any) {
+      console.error('Error retrieving subscription:', err.message);
+    }
+  } else if (userEmail) {
+    // No subscription, just create a basic pro entry with the email
+    console.log('No subscription found, creating basic profile for:', userEmail);
+    await createBasicProProfile(userEmail);
+  }
+}
+
+async function createBasicProProfile(email: string) {
+  console.log('Creating basic pro profile for:', email);
+
+  const { error: updateError, count } = await supabase
+    .from('profiles')
+    .update({ plan: 'pro', subscription_status: 'active' })
+    .eq('email', email);
+
+  if (updateError) {
+    console.error('Supabase update error:', updateError.code, updateError.message);
+  }
+
+  if (count === 0) {
+    console.log('No existing profile, creating new record');
+    const { error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        email: email,
+        plan: 'pro',
+        subscription_status: 'active',
+        credits: 0,
+        monthly_credits_used: 0,
+      });
+
+    if (insertError) {
+      console.error('Supabase insert error:', insertError.code, insertError.message);
+    } else {
+      console.log('Successfully created new pro profile for:', email);
+    }
   }
 }
 
