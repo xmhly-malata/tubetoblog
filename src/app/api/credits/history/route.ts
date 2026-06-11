@@ -13,11 +13,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // First get the user's ID from their email
+    // Get user ID from session
+    const userId = (session.user as any).id;
+    if (!userId) {
+      return NextResponse.json({ history: [] });
+    }
+
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('id')
-      .eq('email', session.user.email)
+      .eq('id', userId)
       .single();
 
     if (profileError || !profile) {

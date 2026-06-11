@@ -29,13 +29,16 @@ export async function POST(request: NextRequest) {
     console.log('Session:', session?.user?.email || 'No session');
     let userCredits = FREE_CREDITS;
     let userEmail = null;
+    let userId = null;
 
     if (session?.user?.email) {
       userEmail = session.user.email;
+      userId = (session.user as any).id || null;
+
       const { data } = await supabase
         .from('profiles')
         .select('credits')
-        .eq('email', userEmail)
+        .eq('id', userId || '')
         .single();
 
       if (data && typeof data.credits === 'number') {
@@ -69,15 +72,16 @@ export async function POST(request: NextRequest) {
       language: 'en',
     });
 
-    if (userEmail) {
+    if (userId) {
       await supabase
         .from('profiles')
         .update({ credits: userCredits - 1 })
-        .eq('email', userEmail);
+        .eq('id', userId);
 
       await supabase
         .from('usage_history')
         .insert({
+          user_id: userId,
           user_email: userEmail,
           title: result.title,
           source: 'YouTube',

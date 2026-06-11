@@ -30,14 +30,17 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       if (user.email) {
+        // Check if profile already exists
         const { data, error } = await supabase
           .from('profiles')
           .select('id')
-          .eq('email', user.email)
+          .eq('id', user.id)
           .single();
 
         if (error || !data) {
+          // Create new profile with the same id as auth.users.id
           await supabase.from('profiles').insert({
+            id: user.id,
             email: user.email,
             credits: FREE_CREDITS,
           });
@@ -46,11 +49,14 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async session({ session, token }) {
-      if (session?.user?.email) {
+      if (session?.user) {
+        // Pass user ID from token to session so other parts of the app can use it
+        (session.user as any).id = token.sub;
+
         const { data } = await supabase
           .from('profiles')
           .select('credits, plan, subscription_status, monthly_credits_used, current_period_end')
-          .eq('email', session.user.email)
+          .eq('id', token.sub!)
           .single();
 
         if (data) {
@@ -66,6 +72,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user) {
         token.email = user.email;
+        token.sub = user.id;
       }
       return token;
     },

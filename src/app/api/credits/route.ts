@@ -13,10 +13,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ credits: 0 }, { status: 200 });
     }
 
+    const userId = (session.user as any).id;
+    if (!userId) {
+      return NextResponse.json({ credits: 0 }, { status: 200 });
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .select('credits')
-      .eq('email', session.user.email)
+      .eq('id', userId)
       .single();
 
     if (error || !data) {
