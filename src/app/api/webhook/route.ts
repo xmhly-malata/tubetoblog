@@ -97,12 +97,14 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
-// Helper function to find user ID by email from public.user_emails view
+// Helper function to find user ID by email from profiles table
+// NOTE: This project uses NextAuth (not Supabase Auth), so auth.users is always empty.
+// User profiles are created in the profiles table by the NextAuth signIn callback.
 async function getUserIdByEmail(email: string, supabase: ReturnType<typeof getServiceRoleClient>): Promise<string | null> {
   console.log('=== getUserIdByEmail: Looking for user with email:', email);
 
   const { data: userData, error: userError } = await supabase
-    .from('user_emails')
+    .from('profiles')
     .select('id, email')
     .eq('email', email)
     .single();

@@ -1,5 +1,5 @@
 import { NextAuthOptions } from 'next-auth';
-import { supabase } from '@/lib/supabase';
+import { supabase, getServiceRoleClient } from '@/lib/supabase';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
 
@@ -30,20 +30,28 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       if (user.email) {
-        // Check if profile already exists
-        const { data, error } = await supabase
+        // Use service role client to bypass RLS - this runs server-side only
+        const adminClient = getServiceRoleClient();
+
+        // Check if profile already exists by id
+        const { data, error } = await adminClient
           .from('profiles')
           .select('id')
           .eq('id', user.id)
           .single();
 
+        console.log('=== signIn: profile check for', user.email, '- data:', JSON.stringify(data), 'error:', error ? JSON.stringify({ code: error.code, message: error.message }) : 'null');
+
         if (error || !data) {
-          // Create new profile with the same id as auth.users.id
-          await supabase.from('profiles').insert({
+          // Create new profile with the same id as NextAuth user id
+          const { error: insertError } = await adminClient.from('profiles').insert({
             id: user.id,
             email: user.email,
             credits: FREE_CREDITS,
           });
+          console.log('=== signIn: profile insert for', user.email, '- error:', insertError ? JSON.stringify({ code: insertError.code, message: insertError.message, details: insertError.details }) : 'null (success)');
+        } else {
+          console.log('=== signIn: profile already exists for', user.email);
         }
       }
       return true;
