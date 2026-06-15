@@ -12,6 +12,7 @@ export default function LandingPage() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
   const totalCredits = 2;
@@ -19,6 +20,34 @@ export default function LandingPage() {
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  const handleUpgrade = async () => {
+    if (!session) {
+      router.push('/auth/signin');
+      return;
+    }
+    // Already pro - go to account
+    if ((session.user as any)?.plan === 'pro') {
+      router.push('/account');
+      return;
+    }
+    // Free user - go directly to Stripe checkout
+    setUpgrading(true);
+    try {
+      const response = await fetch('/api/purchase', { method: 'POST' });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Failed to create checkout session');
+        setUpgrading(false);
+      }
+    } catch (error) {
+      console.error('Purchase error:', error);
+      alert('Failed to initiate purchase');
+      setUpgrading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,10 +303,11 @@ export default function LandingPage() {
                     </li>
                   </ul>
                   <button
-                    onClick={() => router.push(session ? '/account' : '/auth/signin')}
-                    className="w-full py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition h-11"
+                    onClick={handleUpgrade}
+                    disabled={upgrading}
+                    className="w-full py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition h-11 disabled:opacity-50 disabled:cursor-wait"
                   >
-                    Upgrade to Pro
+                    {upgrading ? 'Redirecting to checkout...' : 'Upgrade to Pro'}
                   </button>
                 </div>
               </div>
