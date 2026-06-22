@@ -12,8 +12,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      // Disable PKCE - code verifier cookie gets lost on Vercel serverless
-      checks: ['state'],
+      // TEMPORARY: disable ALL checks to isolate OAuthCallback error
+      checks: [],
     })
   );
 }
@@ -23,22 +23,34 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      checks: ['state'],
+      checks: [],
     })
   );
 }
 
 export const authOptions: NextAuthOptions = {
   providers,
-  // On Vercel: set AUTH_TRUST_HOST=true in environment variables
+  secret: process.env.NEXTAUTH_SECRET,
   logger: {
     error(code, metadata) {
-      console.error('=== NextAuth ERROR ===', code, metadata ? JSON.stringify(metadata) : '');
+      // Serialize Error objects properly (JSON.stringify loses Error properties)
+      const safeMeta = metadata instanceof Error
+        ? { message: metadata.message, name: metadata.name, stack: metadata.stack }
+        : metadata && typeof metadata === 'object'
+        ? JSON.stringify(metadata, (key, value) =>
+            value instanceof Error ? { message: value.message, name: value.name, stack: value.stack } : value
+          )
+        : String(metadata);
+      console.error('=== NextAuth ERROR ===', code, safeMeta);
     },
     warn(code) {
       console.warn('=== NextAuth WARN ===', code);
     },
+    debug(code, metadata) {
+      console.log('=== NextAuth DEBUG ===', code, metadata ? JSON.stringify(metadata) : '');
+    },
   },
+  debug: true,
   callbacks: {
     async signIn({ user, account, profile }) {
       if (user.email) {
