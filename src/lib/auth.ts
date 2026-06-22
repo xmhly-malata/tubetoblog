@@ -12,6 +12,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      // Disable PKCE - code verifier cookie gets lost on Vercel serverless
+      checks: ['state'],
     })
   );
 }
@@ -21,12 +23,22 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      checks: ['state'],
     })
   );
 }
 
 export const authOptions: NextAuthOptions = {
   providers,
+  // On Vercel: set AUTH_TRUST_HOST=true in environment variables
+  logger: {
+    error(code, metadata) {
+      console.error('=== NextAuth ERROR ===', code, metadata ? JSON.stringify(metadata) : '');
+    },
+    warn(code) {
+      console.warn('=== NextAuth WARN ===', code);
+    },
+  },
   callbacks: {
     async signIn({ user, account, profile }) {
       if (user.email) {
