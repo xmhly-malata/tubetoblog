@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY;
-const MINIMAX_API_URL = process.env.MINIMAX_API_URL || 'https://api.minimax.chat/v1/chat/completions';
+const AI_API_KEY = process.env.AI_API_KEY;
+const AI_API_URL = process.env.AI_API_URL || 'https://apihub.agnes-ai.com/v1/chat/completions';
+const AI_MODEL = process.env.AI_MODEL || 'agnes-2.0-flash';
 
 interface GenerationOptions {
   videoTitle: string;
@@ -53,11 +54,10 @@ function extractJsonFromResponse(text: string): any {
   throw new Error('Failed to parse AI response');
 }
 
-async function fetchMiniMaxWithRetry(
+async function fetchAIWithRetry(
   url: string,
   data: any,
   headers: any,
-  httpsAgent: any,
   retries = 3
 ): Promise<any> {
   let lastError: any;
@@ -66,8 +66,8 @@ async function fetchMiniMaxWithRetry(
     try {
       const response = await axios.post(url, data, {
         headers,
-        timeout: 60000,
-        httpsAgent,
+        timeout: 120000,
+        proxy: false,
       });
       return response;
     } catch (error: any) {
@@ -79,7 +79,7 @@ async function fetchMiniMaxWithRetry(
         error.code === 'ECONNABORTED' ||
         error.message?.includes('Client network socket disconnected')
       ) {
-        console.log(`MiniMax retry ${i + 1}/${retries} due to connection error`);
+        console.log(`AI retry ${i + 1}/${retries} due to connection error`);
         if (i < retries - 1) {
           await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
           continue;
@@ -128,16 +128,8 @@ Respond ONLY with valid JSON, no explanations or markdown code blocks.
 `.trim();
 
   try {
-    const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
-    let httpsAgent: any = undefined;
-    
-    if (httpsProxy) {
-      const { HttpsProxyAgent } = require('https-proxy-agent');
-      httpsAgent = new HttpsProxyAgent(httpsProxy);
-    }
-
     const requestData = {
-      model: "MiniMax-Text-01",
+      model: AI_MODEL,
       messages: [
         {
           role: "user",
@@ -149,21 +141,20 @@ Respond ONLY with valid JSON, no explanations or markdown code blocks.
     };
 
     const headers = {
-      'Authorization': `Bearer ${MINIMAX_API_KEY}`,
+      'Authorization': `Bearer ${AI_API_KEY}`,
       'Content-Type': 'application/json',
     };
 
-    console.log('MiniMax request sending...');
-    const response = await fetchMiniMaxWithRetry(
-      MINIMAX_API_URL,
+    console.log(`AI request sending with model: ${AI_MODEL}...`);
+    const response = await fetchAIWithRetry(
+      AI_API_URL,
       requestData,
-      headers,
-      httpsAgent
+      headers
     );
 
     const data = response.data;
-    console.log('MiniMax raw response status:', response.status);
-    console.log('MiniMax raw response:', JSON.stringify(data, null, 2));
+    console.log('AI raw response status:', response.status);
+    console.log('AI raw response:', JSON.stringify(data, null, 2));
     
     let generatedText = '';
     
@@ -208,11 +199,10 @@ Respond ONLY with valid JSON, no explanations or markdown code blocks.
       },
     };
   } catch (error: any) {
-    console.error('MiniMax API error:', error);
+    console.error('AI API error:', error);
     
-    if (error.response?.data?.base_resp) {
-      const baseResp = error.response.data.base_resp;
-      console.error('MiniMax API error details:', baseResp);
+    if (error.response?.data) {
+      console.error('AI API error details:', JSON.stringify(error.response.data, null, 2));
     }
     
     if (error.message.includes('Failed to parse') || error.message.includes('Empty response') || error.message.includes('Invalid JSON')) {
